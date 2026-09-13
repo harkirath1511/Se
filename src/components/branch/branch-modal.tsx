@@ -1,9 +1,17 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { GitFork, X, Check, ArrowRight, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { ReplayEvent } from '@/lib/types/event';
-import { BranchComparison } from '@/lib/engine/branch';
+import React, { useState } from "react";
+import { useModal } from "@/components/use-modal";
+import {
+  GitFork,
+  X,
+  Check,
+  ArrowRight,
+  ShieldCheck,
+  AlertTriangle,
+} from "lucide-react";
+import { ReplayEvent } from "@/lib/types/event";
+import { BranchComparison } from "@/lib/engine/branch";
 
 interface BranchModalProps {
   isOpen: boolean;
@@ -12,6 +20,7 @@ interface BranchModalProps {
   recordPk: string;
   allTransactions: string[];
   events: ReplayEvent[];
+  asOf?: string;
 }
 
 export const BranchModal: React.FC<BranchModalProps> = ({
@@ -21,12 +30,15 @@ export const BranchModal: React.FC<BranchModalProps> = ({
   recordPk,
   allTransactions,
   events,
+  asOf,
 }) => {
-  const [branchName, setBranchName] = useState('counterfactual-fix-tx402');
-  const [excludedTx, setExcludedTx] = useState<string[]>(['402']);
+  const [branchName, setBranchName] = useState("counterfactual-fix-tx402");
+  const [excludedTx, setExcludedTx] = useState<string[]>(["402"]);
   const [comparison, setComparison] = useState<BranchComparison | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const [error, setError] = useState("");
+  const modalRef = useModal(isOpen, onClose);
   if (!isOpen) return null;
 
   const toggleTx = (tx: string) => {
@@ -39,14 +51,16 @@ export const BranchModal: React.FC<BranchModalProps> = ({
 
   const handleSimulateBranch = async () => {
     setIsLoading(true);
+    setError("");
+    setComparison(null);
     try {
       // 1. Create branch
-      const createRes = await fetch('/api/v1/branches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const createRes = await fetch("/api/v1/branches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           branchName,
-          baseTimestamp: new Date('2026-09-07T08:00:00Z').toISOString(),
+          baseTimestamp: events[0]?.recordedAt || new Date().toISOString(),
           excludedTransactions: excludedTx,
         }),
       });
@@ -57,14 +71,20 @@ export const BranchModal: React.FC<BranchModalProps> = ({
 
       // 2. Fetch branched state comparison
       const stateRes = await fetch(
-        `/api/v1/branches/${branchId}/state/${tableName}?recordPk=${recordPk}`
+        `/api/v1/branches/${branchId}/state/${encodeURIComponent(tableName)}?recordPk=${encodeURIComponent(recordPk)}${asOf ? `&asOf=${encodeURIComponent(asOf)}` : ""}`,
       );
       const stateJson = await stateRes.json();
+      if (!stateRes.ok || !stateJson.success)
+        throw new Error(stateJson.error || "Unable to load branch comparison");
       if (stateJson.success) {
         setComparison(stateJson.data);
       }
     } catch (err) {
-      console.error('Error simulating branch:', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to create branch. Please try again.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -72,7 +92,13 @@ export const BranchModal: React.FC<BranchModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="branch-title"
+        className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200"
+      >
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
           <div className="flex items-center space-x-2.5">
@@ -80,16 +106,18 @@ export const BranchModal: React.FC<BranchModalProps> = ({
               <GitFork className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">
-                Counterfactual Branching Sandbox
+              <h2 id="branch-title" className="text-base font-bold text-white">
+                Explore another outcome
               </h2>
               <p className="text-xs text-slate-400">
-                Simulate alternative database states by omitting erroneous transactions
+                Compare the selected moment with a timeline that omits chosen
+                transactions
               </p>
             </div>
           </div>
 
           <button
+            aria-label="Close branch dialog"
             onClick={onClose}
             className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-800 transition"
           >
@@ -105,6 +133,7 @@ export const BranchModal: React.FC<BranchModalProps> = ({
             </label>
             <input
               type="text"
+              aria-label="Branch name"
               value={branchName}
               onChange={(e) => setBranchName(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-blue-500"
@@ -119,7 +148,7 @@ export const BranchModal: React.FC<BranchModalProps> = ({
             <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 bg-slate-950 rounded-lg border border-slate-800">
               {allTransactions.map((tx) => {
                 const isExcluded = excludedTx.includes(tx);
-                const isBug = tx === '402';
+                const isBug = tx === "402";
 
                 return (
                   <button
@@ -127,32 +156,44 @@ export const BranchModal: React.FC<BranchModalProps> = ({
                     onClick={() => toggleTx(tx)}
                     className={`text-xs px-2.5 py-1 rounded-md font-mono flex items-center space-x-1.5 border transition ${
                       isExcluded
-                        ? 'bg-rose-500/20 border-rose-500/50 text-rose-300'
-                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                        ? "bg-rose-500/20 border-rose-500/50 text-rose-300"
+                        : "bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700"
                     }`}
                   >
                     <span>Tx {tx}</span>
-                    {isBug && <span className="text-[10px] text-rose-400 font-bold">[BUG]</span>}
+                    {isBug && (
+                      <span className="text-[10px] text-rose-400 font-bold">
+                        [BUG]
+                      </span>
+                    )}
                     {isExcluded && <Check className="w-3 h-3 text-rose-400" />}
                   </button>
                 );
               })}
             </div>
             <p className="text-[11px] text-slate-500 mt-1">
-              Click Tx 402 to simulate what happens if the rogue batch migration had never committed.
+              Click Tx 402 to simulate what happens if the rogue batch migration
+              had never committed.
             </p>
           </div>
 
           <button
             onClick={handleSimulateBranch}
-            disabled={isLoading}
+            disabled={isLoading || !branchName.trim() || !events.length}
             className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-lg shadow-lg shadow-indigo-600/20 flex items-center justify-center space-x-2 transition disabled:opacity-50"
           >
             <GitFork className="w-4 h-4" />
-            <span>{isLoading ? 'Recomputing State Graph...' : 'Materialize Counterfactual Timeline'}</span>
+            <span>
+              {isLoading ? "Comparing timelines..." : "Compare timelines"}
+            </span>
           </button>
         </div>
 
+        {error && (
+          <p role="alert" className="text-rose-400 text-xs">
+            {error}
+          </p>
+        )}
         {/* Comparison Result */}
         {comparison && (
           <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
@@ -160,17 +201,20 @@ export const BranchModal: React.FC<BranchModalProps> = ({
               <div className="flex items-center space-x-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
                 <span className="text-xs font-semibold text-slate-200">
-                  Counterfactual Verification Result ({tableName} PK: {recordPk})
+                  Counterfactual Verification Result ({tableName} PK: {recordPk}
+                  )
                 </span>
               </div>
               <span
                 className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
                   comparison.diverged
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                    : 'bg-slate-800 text-slate-400'
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    : "bg-slate-800 text-slate-400"
                 }`}
               >
-                {comparison.diverged ? 'Timeline Diverged (Clean Fix)' : 'Identical to Reality'}
+                {comparison.diverged
+                  ? "Alternative outcome"
+                  : "Identical to Reality"}
               </span>
             </div>
 
@@ -179,7 +223,7 @@ export const BranchModal: React.FC<BranchModalProps> = ({
               <div className="bg-slate-900/60 border border-rose-500/30 rounded-lg p-3 space-y-1.5">
                 <div className="text-[10px] text-rose-400 font-bold uppercase tracking-wider flex items-center space-x-1">
                   <AlertTriangle className="w-3 h-3" />
-                  <span>Actual Reality (With Bug)</span>
+                  <span>Actual timeline</span>
                 </div>
                 <pre className="text-[11px] text-slate-300 overflow-x-auto whitespace-pre-wrap">
                   {JSON.stringify(comparison.actualState, null, 2)}

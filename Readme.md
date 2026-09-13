@@ -99,3 +99,17 @@ Connection details:
 - `POST /api/v1/branches` — Define counterfactual branch omitting transactions
 - `GET /api/v1/branches/:id/state/:table` — Reconstruct state in counterfactual branch
 - `POST /api/v1/demo` — Turnkey demo runner (seed, inject bug, custom mutation)
+## Frontend experience
+
+The homepage combines an ivory, sage, and orange editorial design with a lightweight animated CSS 3D temporal sculpture. The responsive Replay Studio connects directly to the existing API and includes:
+
+- Table and record selection, event scrubbing, and replay playback.
+- Reconstructed record attributes and field-level before/after changes.
+- Cross-table transaction context and searchable event history (the latest 200 loaded events, with up to 30 search results displayed).
+- Incident simulation, baseline reset, and custom mutations with validation feedback.
+- Counterfactual branches compared at the selected event timestamp, rather than implicitly at the latest state.
+- Keyboard-accessible dialogs, focus restoration, visible focus indicators, and reduced-motion support.
+
+Run `npm install` and `npm run dev`, then open the workspace from the homepage. The embedded demo works without PostgreSQL; its state is temporary and resets when the server restarts. The connection indicator distinguishes demo mode from a connected PostgreSQL instance. Use the **Reset demo** and **Simulate an incident** controls to explore the seeded scenario. Select transaction 402 on the timeline, then **Create a branch** to compare that moment without transaction 402. Later transactions can reintroduce values through their full row snapshots, so comparisons depend on the selected moment and omitted transactions.
+
+The visual redesign adds no production dependencies or remote image/font requirements.

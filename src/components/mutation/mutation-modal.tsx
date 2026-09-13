@@ -1,8 +1,9 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { PlusCircle, X, Terminal } from 'lucide-react';
-import { OperationType } from '@/lib/types/event';
+import React, { useState } from "react";
+import { useModal } from "@/components/use-modal";
+import { PlusCircle, X, Terminal } from "lucide-react";
+import { OperationType } from "@/lib/types/event";
 
 interface MutationModalProps {
   isOpen: boolean;
@@ -17,14 +18,19 @@ export const MutationModal: React.FC<MutationModalProps> = ({
   onMutationSuccess,
   monitoredTables,
 }) => {
-  const [table, setTable] = useState(monitoredTables[0] || 'users');
-  const [pk, setPk] = useState('1');
-  const [opType, setOpType] = useState<OperationType>('UPDATE');
-  const [payloadJson, setPayloadJson] = useState('{\n  "balance": 1500.00,\n  "status": "VIP"\n}');
-  const [queryNote, setQueryNote] = useState('UPDATE users SET balance = 1500.00, status = \'VIP\' WHERE id = 1;');
+  const [table, setTable] = useState(monitoredTables[0] || "users");
+  const [pk, setPk] = useState("1");
+  const [opType, setOpType] = useState<OperationType>("UPDATE");
+  const [payloadJson, setPayloadJson] = useState(
+    '{\n  "balance": 1500.00,\n  "status": "VIP"\n}',
+  );
+  const [queryNote, setQueryNote] = useState(
+    "UPDATE users SET balance = 1500.00, status = 'VIP' WHERE id = 1;",
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const modalRef = useModal(isOpen, onClose);
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,11 +40,11 @@ export const MutationModal: React.FC<MutationModalProps> = ({
 
     try {
       const parsed = JSON.parse(payloadJson);
-      const res = await fetch('/api/v1/demo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/v1/demo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: 'custom_mutation',
+          action: "custom_mutation",
           payload: {
             tableName: table,
             recordPk: pk,
@@ -55,7 +61,7 @@ export const MutationModal: React.FC<MutationModalProps> = ({
       onMutationSuccess();
       onClose();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Invalid JSON payload');
+      setErrorMsg(err.message || "Invalid JSON payload");
     } finally {
       setIsSubmitting(false);
     }
@@ -63,13 +69,22 @@ export const MutationModal: React.FC<MutationModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="mutation-title"
+        className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4"
+      >
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center space-x-2">
             <PlusCircle className="w-5 h-5 text-blue-400" />
-            <h3 className="font-bold text-white text-base">Execute Custom Mutation</h3>
+            <h3 id="mutation-title" className="font-bold text-white text-base">
+              Execute Custom Mutation
+            </h3>
           </div>
           <button
+            aria-label="Close mutation dialog"
             onClick={onClose}
             className="p-1 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-800 transition"
           >
@@ -80,8 +95,11 @@ export const MutationModal: React.FC<MutationModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
           <div className="grid grid-cols-3 gap-2.5">
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Target Table</label>
+              <label className="block text-slate-300 font-semibold mb-1">
+                Target Table
+              </label>
               <select
+                aria-label="Mutation table"
                 value={table}
                 onChange={(e) => setTable(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 font-mono"
@@ -95,9 +113,12 @@ export const MutationModal: React.FC<MutationModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Record PK</label>
+              <label className="block text-slate-300 font-semibold mb-1">
+                Record PK
+              </label>
               <input
                 type="text"
+                aria-label="Mutation record key"
                 value={pk}
                 onChange={(e) => setPk(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 font-mono"
@@ -106,8 +127,11 @@ export const MutationModal: React.FC<MutationModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Operation</label>
+              <label className="block text-slate-300 font-semibold mb-1">
+                Operation
+              </label>
               <select
+                aria-label="Mutation operation"
                 value={opType}
                 onChange={(e) => setOpType(e.target.value as OperationType)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 font-mono"
@@ -125,6 +149,7 @@ export const MutationModal: React.FC<MutationModalProps> = ({
             </label>
             <textarea
               rows={4}
+              aria-label="New state JSON"
               value={payloadJson}
               onChange={(e) => setPayloadJson(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 font-mono text-slate-200 focus:outline-none focus:border-blue-500"
@@ -133,9 +158,12 @@ export const MutationModal: React.FC<MutationModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-slate-300 font-semibold mb-1">SQL Query Note</label>
+            <label className="block text-slate-300 font-semibold mb-1">
+              SQL Query Note
+            </label>
             <input
               type="text"
+              aria-label="Query note"
               value={queryNote}
               onChange={(e) => setQueryNote(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 font-mono text-slate-400"
@@ -151,6 +179,7 @@ export const MutationModal: React.FC<MutationModalProps> = ({
           <div className="pt-2 flex justify-end space-x-2">
             <button
               type="button"
+              aria-label="Close mutation dialog"
               onClick={onClose}
               className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 bg-slate-800"
             >
@@ -161,7 +190,7 @@ export const MutationModal: React.FC<MutationModalProps> = ({
               disabled={isSubmitting}
               className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg shadow-md shadow-blue-600/20 disabled:opacity-50"
             >
-              {isSubmitting ? 'Writing...' : 'Commit Mutation'}
+              {isSubmitting ? "Writing..." : "Commit Mutation"}
             </button>
           </div>
         </form>
