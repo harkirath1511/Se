@@ -433,5 +433,12 @@ class DataStore {
   }
 }
 
-// Global singleton instance
-export const db = new DataStore();
+// Route handlers are bundled separately by Next.js. Keeping this instance on
+// globalThis makes the standalone demo ledger shared by every handler rather
+// than giving each endpoint its own freshly-seeded copy.
+const replayDbGlobal = globalThis as typeof globalThis & {
+  replayDbStore?: DataStore;
+};
+
+export const db = replayDbGlobal.replayDbStore ?? new DataStore();
+replayDbGlobal.replayDbStore = db;

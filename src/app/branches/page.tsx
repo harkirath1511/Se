@@ -39,6 +39,7 @@ export default function BranchesPage() {
   const [comparison, setComparison] = useState<BranchComparison | null>(null);
   const [branchModalOpen, setBranchModalOpen] = useState(false);
   const [recordEvents, setRecordEvents] = useState<ReplayEvent[]>([]);
+  const [comparisonAsOf, setComparisonAsOf] = useState<string | null>(null);
 
   // Fetch defined branches
   useEffect(() => {
@@ -78,13 +79,21 @@ export default function BranchesPage() {
         .map((t) => t.trim())
         .filter(Boolean);
 
+      // A counterfactual is most useful at the moment the excluded write has
+      // finished. Later events may legitimately depend on that write, so
+      // comparing at “now” can hide the original impact.
+      const incidentEvent = [...recordEvents]
+        .reverse()
+        .find((event) => excludedArray.includes(event.transactionId));
+      const asOf = incidentEvent?.recordedAt ?? recordEvents.at(-1)?.recordedAt ?? new Date().toISOString();
+
       // Create branch on the fly
       const createRes = await fetch("/api/v1/branches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           branchName: `sandbox-omit-${excludedArray.join("-") || "none"}`,
-          baseTimestamp: new Date(0).toISOString(),
+          baseTimestamp: asOf,
           excludedTransactions: excludedArray,
         }),
       });
@@ -98,14 +107,15 @@ export default function BranchesPage() {
       const compRes = await fetch(
         `/api/v1/branches/${branchId}/state/${encodeURIComponent(
           selectedTable
-        )}?recordPk=${encodeURIComponent(recordPk)}`
+        )}?recordPk=${encodeURIComponent(recordPk)}&asOf=${encodeURIComponent(asOf)}`
       );
 
       const compJson = await compRes.json();
       if (!compJson.success) throw new Error(compJson.error);
 
       setComparison(compJson.data);
-      setNotice("Simulation executed. Counterfactual state materialized.");
+      setComparisonAsOf(asOf);
+      setNotice("Simulation executed at the incident moment. Compare reality with the recovered alternative.");
     } catch (err) {
       alert(err instanceof Error ? err.message : "Simulation failed");
     } finally {
@@ -256,6 +266,7 @@ export default function BranchesPage() {
                   </span>
                   <span style={{ fontSize: "12px", color: "var(--muted)" }}>
                     Comparing Reality vs Alternative Timeline for {selectedTable} #{recordPk}
+                    {comparisonAsOf ? ` at ${new Date(comparisonAsOf).toLocaleTimeString()}` : ""}
                   </span>
                 </div>
 

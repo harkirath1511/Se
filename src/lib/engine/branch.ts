@@ -88,4 +88,13 @@ export class BranchEngine {
   }
 }
 
-export const defaultBranchEngine = new BranchEngine();
+// Branch creation and branch replay are served by different route handlers.
+// Use one process-wide engine so a branch created by POST is available to the
+// subsequent state-comparison GET request.
+const replayBranchGlobal = globalThis as typeof globalThis & {
+  replayBranchEngine?: BranchEngine;
+};
+
+export const defaultBranchEngine =
+  replayBranchGlobal.replayBranchEngine ?? new BranchEngine();
+replayBranchGlobal.replayBranchEngine = defaultBranchEngine;

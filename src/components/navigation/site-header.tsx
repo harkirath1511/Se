@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   History,
@@ -12,12 +13,15 @@ import {
   GitBranch,
   Layers,
   Activity,
+  Menu,
+  X,
 } from "lucide-react";
 import { useReplay } from "@/context/replay-context";
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const { status, action, openMutationModal, busy } = useReplay();
+  const { status, action, openMutationModal, busy, error, refresh, setError } = useReplay();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const navLinks = [
     { label: "Overview", href: "/" },
@@ -51,7 +55,18 @@ export function SiteHeader() {
         )}
       </div>
 
-      <nav aria-label="Main navigation">
+      <button
+        className="mobile-menu-toggle"
+        type="button"
+        aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+        aria-expanded={menuOpen}
+        onClick={() => setMenuOpen((open) => !open)}
+      >
+        {menuOpen ? <X size={20} /> : <Menu size={20} />}
+        <span>Menu</span>
+      </button>
+
+      <nav className={menuOpen ? "mobile-nav-open" : ""} aria-label="Main navigation">
         {navLinks.map((link) => {
           const isActive =
             link.href === "/"
@@ -62,6 +77,7 @@ export function SiteHeader() {
               key={link.href}
               href={link.href}
               className={isActive ? "active-nav" : ""}
+              onClick={() => setMenuOpen(false)}
             >
               {link.label}
             </Link>
@@ -99,6 +115,13 @@ export function SiteHeader() {
           <span>New Mutation</span>
         </button>
       </div>
+      {error && (
+        <div className="app-error" role="alert">
+          <span>Couldn’t load ReplayDB data. Check the connection and try again.</span>
+          <button type="button" onClick={() => { setError(""); refresh(); }}>Retry</button>
+          <button type="button" aria-label="Dismiss error" onClick={() => setError("")}>×</button>
+        </div>
+      )}
     </header>
   );
 }

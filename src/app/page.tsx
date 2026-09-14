@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
   Database,
@@ -19,6 +20,7 @@ import { useReplay } from "@/context/replay-context";
 export default function LandingPage() {
   const sculpture = useRef<HTMLDivElement>(null);
   const { status, action, busy } = useReplay();
+  const router = useRouter();
 
   return (
     <main>
@@ -230,15 +232,20 @@ export default function LandingPage() {
 
       {/* ─── Demo Incident Strip ───────────────────────────── */}
       <section className="shell" style={{ paddingBottom: "50px" }}>
-        <div className="demo-strip">
+        <div className="demo-strip demo-guide">
           <div className="demo-symbol">
             <Activity size={21} />
           </div>
           <div>
-            <strong>Curious? Break something. Then rewind.</strong>
+            <strong>Try the guided incident investigation</strong>
             <p>
-              Simulate a rogue batch transaction (Tx 402) that corrupts user balances and marks accounts as FRAUD. Follow the evidence across pages to reconstruct the truth.
+              Start with normal data, introduce the safe demo incident, then inspect every affected record and test the recovery plan. Nothing touches a production database.
             </p>
+            <ol className="demo-steps" aria-label="Guided demo steps">
+              <li><span>1</span> Inject the safe demo incident</li>
+              <li><span>2</span> Review the affected transaction</li>
+              <li><span>3</span> Compare a recovery timeline</li>
+            </ol>
           </div>
           <div className="demo-actions">
             <button
@@ -251,9 +258,12 @@ export default function LandingPage() {
             <button
               className="button outline small"
               disabled={busy}
-              onClick={() => action("inject_bug")}
+              onClick={async () => {
+                await action("inject_bug");
+                router.push("/transactions?txId=402");
+              }}
             >
-              {busy ? "Working…" : "Inject Tx 402 Bug"}
+              {busy ? "Preparing incident…" : "Start incident investigation"}
               <ArrowUpRight size={15} />
             </button>
           </div>

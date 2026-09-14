@@ -33,7 +33,12 @@ interface ReplayContextValue {
 const ReplayContext = createContext<ReplayContextValue | undefined>(undefined);
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
+  const response = await fetch(url, {
+    ...init,
+    // A stalled local API should never leave the interface saying
+    // “Connecting…” forever. Surface a useful error instead.
+    signal: init?.signal ?? AbortSignal.timeout(8000),
+  });
   const json = await response.json();
   if (!response.ok || !json.success) {
     throw new Error(json.error || "Unable to connect. Please try again.");
@@ -61,6 +66,7 @@ export function ReplayProvider({ children }: { children: React.ReactNode }) {
       setStatus(system);
       setTables(monitored);
       setLedger(globalEvents);
+      setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load system state");
     }
